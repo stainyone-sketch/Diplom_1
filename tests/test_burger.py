@@ -1,35 +1,5 @@
-import os
-import sys
-sys.path.insert(0, os.path.dirname(__file__))
-from unittest.mock import Mock
-
-# Подмена модулей praktikum для корректного импорта Burger
-from bun import Bun
-from ingredient import Ingredient
-
-mock_praktikum = Mock()
-mock_bun_module = Mock()
-mock_bun_module.Bun = Bun
-mock_ingredient_module = Mock()
-mock_ingredient_module.Ingredient = Ingredient
-
-sys.modules['praktikum'] = mock_praktikum
-sys.modules['praktikum.bun'] = mock_bun_module
-sys.modules['praktikum.ingredient'] = mock_ingredient_module
-
-from burger import Burger
 import pytest
-
-@pytest.fixture
-def burger():
-    return Burger()
-
-@pytest.fixture
-def mock_bun():
-    bun = Mock(spec=Bun)
-    bun.get_name.return_value = "black bun"
-    bun.get_price.return_value = 100
-    return bun
+from unittest.mock import Mock
 
 class TestBurger:
     def test_set_buns(self, burger, mock_bun):
@@ -37,14 +7,14 @@ class TestBurger:
         assert burger.bun == mock_bun
 
     def test_add_ingredient(self, burger):
-        ingredient = Mock(spec=Ingredient)
+        ingredient = Mock()
         burger.add_ingredient(ingredient)
         assert len(burger.ingredients) == 1
         assert burger.ingredients[0] == ingredient
 
     def test_remove_ingredient_first(self, burger):
-        ing1 = Mock(spec=Ingredient)
-        ing2 = Mock(spec=Ingredient)
+        ing1 = Mock()
+        ing2 = Mock()
         burger.add_ingredient(ing1)
         burger.add_ingredient(ing2)
         burger.remove_ingredient(0)
@@ -52,8 +22,8 @@ class TestBurger:
         assert burger.ingredients[0] == ing2
 
     def test_remove_ingredient_last(self, burger):
-        ing1 = Mock(spec=Ingredient)
-        ing2 = Mock(spec=Ingredient)
+        ing1 = Mock()
+        ing2 = Mock()
         burger.add_ingredient(ing1)
         burger.add_ingredient(ing2)
         burger.remove_ingredient(1)
@@ -61,20 +31,20 @@ class TestBurger:
         assert burger.ingredients[0] == ing1
 
     def test_remove_ingredient_single(self, burger):
-        ing = Mock(spec=Ingredient)
+        ing = Mock()
         burger.add_ingredient(ing)
         burger.remove_ingredient(0)
         assert len(burger.ingredients) == 0
 
     def test_remove_ingredient_invalid_index(self, burger):
-        ing = Mock(spec=Ingredient)
+        ing = Mock()
         burger.add_ingredient(ing)
         with pytest.raises(IndexError):
             burger.remove_ingredient(1)
 
     def test_move_ingredient_same_index(self, burger):
-        ing1 = Mock(spec=Ingredient)
-        ing2 = Mock(spec=Ingredient)
+        ing1 = Mock()
+        ing2 = Mock()
         burger.add_ingredient(ing1)
         burger.add_ingredient(ing2)
         burger.move_ingredient(0, 0)
@@ -82,8 +52,8 @@ class TestBurger:
         assert burger.ingredients[1] == ing2
 
     def test_move_ingredient(self, burger):
-        ing1 = Mock(spec=Ingredient)
-        ing2 = Mock(spec=Ingredient)
+        ing1 = Mock()
+        ing2 = Mock()
         burger.add_ingredient(ing1)
         burger.add_ingredient(ing2)
         burger.move_ingredient(0, 1)
@@ -91,8 +61,8 @@ class TestBurger:
         assert burger.ingredients[1] == ing1
 
     def test_move_ingredient_from_end_to_start(self, burger):
-        ing1 = Mock(spec=Ingredient)
-        ing2 = Mock(spec=Ingredient)
+        ing1 = Mock()
+        ing2 = Mock()
         burger.add_ingredient(ing1)
         burger.add_ingredient(ing2)
         burger.move_ingredient(1, 0)
@@ -101,45 +71,60 @@ class TestBurger:
 
     def test_get_price_only_bun(self, burger, mock_bun):
         burger.set_buns(mock_bun)
-        assert burger.get_price() == 200
+        expected_price = mock_bun.get_price() * 2
+        assert burger.get_price() == expected_price
 
     def test_get_price_no_bun(self, burger):
-        ing = Mock(spec=Ingredient)
+        ing = Mock()
         burger.add_ingredient(ing)
         with pytest.raises(AttributeError):
             burger.get_price()
 
     def test_get_receipt_no_bun(self, burger):
-        ing = Mock(spec=Ingredient)
+        ing = Mock()
         burger.add_ingredient(ing)
         with pytest.raises(AttributeError):
             burger.get_receipt()
 
-    @pytest.mark.parametrize("sauce_count, filling_count, expected_price", [
-        (0, 0, 200),
-        (1, 0, 250),
-        (1, 1, 320)
+    @pytest.mark.parametrize("sauce_count, filling_count", [
+        (0, 0),
+        (1, 0),
+        (1, 1)
     ])
-    def test_get_receipt(self, burger, mock_bun, sauce_count, filling_count, expected_price):
+    def test_get_receipt(self, burger, mock_bun, mock_sauce, mock_filling, sauce_count, filling_count):
         burger.set_buns(mock_bun)
+        ingredients = []
+
         for _ in range(sauce_count):
-            sauce = Mock(spec=Ingredient)
-            sauce.get_type.return_value = "sauce"
-            sauce.get_name.return_value = "hot sauce"
-            sauce.get_price.return_value = 50
-            burger.add_ingredient(sauce)
+            burger.add_ingredient(mock_sauce)
+            ingredients.append(mock_sauce)
         for _ in range(filling_count):
-            filling = Mock(spec=Ingredient)
-            filling.get_type.return_value = "filling"
-            filling.get_name.return_value = "cheese"
-            filling.get_price.return_value = 70
-            burger.add_ingredient(filling)
+            burger.add_ingredient(mock_filling)
+            ingredients.append(mock_filling)
+
+        bun_price = mock_bun.get_price()
+        total_price = bun_price * 2 + sum(ing.get_price() for ing in ingredients)
+
         lines = [f"(==== {mock_bun.get_name()} ====)"]
         for ing in burger.ingredients:
             lines.append(f"= {ing.get_type()} {ing.get_name()} =")
         lines.append(f"(==== {mock_bun.get_name()} ====)")
         lines.append("")
-        lines.append(f"Price: {expected_price}")
+        lines.append(f"Price: {total_price}")
         expected = "\n".join(lines)
+
         assert burger.get_receipt() == expected
+
+    def test_get_price_without_bun_and_ingredients(self, burger):
+        with pytest.raises(AttributeError):
+            burger.get_price()
+
+    def test_move_ingredient_invalid_index(self, burger):
+        ing = Mock()
+        burger.add_ingredient(ing)
+        with pytest.raises(IndexError):
+            burger.move_ingredient(1, 0)
+        with pytest.raises(IndexError):
+            burger.move_ingredient(-2, 0)
+        burger.move_ingredient(0, 5)
         

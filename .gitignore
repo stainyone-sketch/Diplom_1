@@ -13,7 +13,6 @@ __pycache__/
 .ruff_cache/
 allure-results/
 allure-report/
-htmlcov/
 .logs/
 *.log
 .idea/
